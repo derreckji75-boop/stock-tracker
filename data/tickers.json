@@ -8,6 +8,10 @@
     "market": "US"
   },
   {
+    "symbol": "MSFT",
+    "market": "US"
+  },
+  {
     "symbol": "TSLA",
     "market": "US"
   }
