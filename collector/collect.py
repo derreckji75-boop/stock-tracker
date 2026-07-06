@@ -50,7 +50,8 @@ def collect_ticker(symbol):
     last_date = closes.index[-1].strftime("%Y-%m-%d")
     close = float(closes.iloc[-1])
     prev_close = float(closes.iloc[-2]) if len(closes) >= 2 else close
-    return {"date": last_date, "close": close, "prevClose": prev_close}
+    collected_at = datetime.now(timezone.utc).isoformat()
+    return {"date": last_date, "close": close, "prevClose": prev_close, "collectedAt": collected_at}
 
 
 def collect_fx():
@@ -60,7 +61,13 @@ def collect_fx():
     usdjpy = float(usdjpy_hist.iloc[-1])
     jpykrw100 = (usdkrw / usdjpy) * 100
     today = datetime.now(KST).strftime("%Y-%m-%d")
-    return {"date": today, "usdkrw": round(usdkrw, 2), "jpykrw100": round(jpykrw100, 2)}
+    collected_at = datetime.now(timezone.utc).isoformat()
+    return {
+        "date": today,
+        "usdkrw": round(usdkrw, 2),
+        "jpykrw100": round(jpykrw100, 2),
+        "collectedAt": collected_at,
+    }
 
 
 def main():
