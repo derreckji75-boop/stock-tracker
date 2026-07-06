@@ -1,34 +1,66 @@
-"""Fetch collected price/FX history directly from GitHub raw URLs.
+"""Read collected price/FX history from the local git clone's data/ folder.
 
-Reading via raw.githubusercontent.com (instead of the local git clone) means
-this always reflects whatever GitHub Actions most recently pushed, with no
-need to `git pull` before every read.
+Reading straight off the filesystem (instead of raw.githubusercontent.com on
+every request) means the dashboard loads with zero network latency. Freshness
+is handled separately by pulling the repo in the background (see refresh_data),
+so the local files reflect whatever GitHub Actions most recently pushed.
 """
-import httpx
+import json
+import subprocess
+import threading
+import time
+from pathlib import Path
 
-GITHUB_OWNER = "derreckji75-boop"
-GITHUB_REPO = "stock-tracker"
-GITHUB_BRANCH = "master"
-RAW_BASE = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{GITHUB_BRANCH}"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = REPO_ROOT / "data"
+PRICES_DIR = DATA_DIR / "prices"
+FX_FILE = DATA_DIR / "fx.json"
+
+_pull_lock = threading.Lock()
+_last_pull = 0.0
+PULL_INTERVAL = 300  # seconds; avoid pulling more than once per 5 min
 
 
-def _fetch_json(path):
-    url = f"{RAW_BASE}/{path}"
+def _read_json(path):
+    if not path.exists():
+        return []
     try:
-        resp = httpx.get(url, timeout=10)
-    except httpx.HTTPError:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (ValueError, OSError):
         return []
-    if resp.status_code != 200:
-        return []
-    try:
-        return resp.json()
-    except ValueError:
-        return []
+
+
+def refresh_data(force=False):
+    """git pull the repo so local data/ reflects the latest Actions push.
+
+    Rate-limited to once per PULL_INTERVAL unless force=True. Runs quietly:
+    network/merge failures are ignored so the API keeps serving local data.
+    """
+    global _last_pull
+    with _pull_lock:
+        if not force and (time.time() - _last_pull) < PULL_INTERVAL:
+            return
+        _last_pull = time.time()
+        try:
+            subprocess.run(
+                ["git", "pull", "--ff-only"],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (subprocess.SubprocessError, OSError):
+            pass
+
+
+def refresh_data_async(force=False):
+    threading.Thread(target=refresh_data, kwargs={"force": force}, daemon=True).start()
 
 
 def get_price_history(symbol):
     """Returns list of {date, close, prevClose, collectedAt}, oldest first."""
-    return _fetch_json(f"data/prices/{symbol}.json")
+    return _read_json(PRICES_DIR / f"{symbol}.json")
 
 
 def get_latest_price(symbol):
@@ -37,7 +69,7 @@ def get_latest_price(symbol):
 
 
 def get_fx_history():
-    return _fetch_json("data/fx.json")
+    return _read_json(FX_FILE)
 
 
 def get_latest_fx():

@@ -20,6 +20,13 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def _startup_pull():
+    # Pull once on startup so local data/ reflects the latest Actions push,
+    # then the dashboard reads straight off the filesystem with no latency.
+    price_client.refresh_data_async(force=True)
+
+
 class AddStockRequest(BaseModel):
     symbol: str
     name: str
@@ -75,6 +82,9 @@ def search(q: str = ""):
 
 @app.get("/api/watchlist")
 def get_watchlist():
+    # Kick off a rate-limited background pull so data stays fresh without
+    # blocking this response (which reads instantly off the local filesystem).
+    price_client.refresh_data_async()
     watchlist = config_store.list_watchlist()
     fx = price_client.get_latest_fx()
     return [_merge_symbol(symbol, entry, fx) for symbol, entry in watchlist.items()]
@@ -87,13 +97,8 @@ def add_stock(body: AddStockRequest):
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
-    try:
-        github_sync.sync_tickers(config_store.list_watchlist())
-    except github_sync.GithubSyncError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Saved locally, but failed to sync ticker list to GitHub: {exc}",
-        )
+    # Writes tickers.json now, pushes to GitHub in the background.
+    github_sync.sync_tickers(config_store.list_watchlist())
 
     fx = price_client.get_latest_fx()
     entry = config_store.list_watchlist()[body.symbol]
@@ -107,13 +112,8 @@ def remove_stock(symbol: str):
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    try:
-        github_sync.sync_tickers(config_store.list_watchlist())
-    except github_sync.GithubSyncError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Removed locally, but failed to sync ticker list to GitHub: {exc}",
-        )
+    # Writes tickers.json now, pushes to GitHub in the background.
+    github_sync.sync_tickers(config_store.list_watchlist())
     return {"ok": True}
 
 
