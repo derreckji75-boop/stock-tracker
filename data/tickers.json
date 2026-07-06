@@ -4,6 +4,10 @@
     "market": "JP"
   },
   {
+    "symbol": "A",
+    "market": "US"
+  },
+  {
     "symbol": "AAPL",
     "market": "US"
   }
