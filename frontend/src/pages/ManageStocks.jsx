@@ -6,6 +6,9 @@ export default function ManageStocks() {
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
   const [market, setMarket] = useState("US");
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -14,6 +17,31 @@ export default function ManageStocks() {
   }
 
   useEffect(load, []);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 1) {
+      setSuggestions([]);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(() => {
+      api
+        .search(q)
+        .then(setSuggestions)
+        .catch(() => setSuggestions([]))
+        .finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  function pickSuggestion(item) {
+    setSymbol(item.symbol);
+    setName(item.name);
+    setMarket(item.market);
+    setQuery("");
+    setSuggestions([]);
+  }
 
   async function handleAdd(e) {
     e.preventDefault();
@@ -44,6 +72,52 @@ export default function ManageStocks() {
     <div>
       <h1>종목 관리</h1>
       {error && <div className="error-banner">{error}</div>}
+
+      <div style={{ position: "relative", marginBottom: "1rem" }}>
+        <input
+          style={{ width: "100%", padding: "0.6rem" }}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="종목명 또는 티커로 검색 (예: apple, toyota, AAPL)"
+        />
+        {query.trim() && (
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              background: "white",
+              border: "1px solid #ddd",
+              borderRadius: 6,
+              boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+              zIndex: 10,
+              maxHeight: 260,
+              overflowY: "auto",
+            }}
+          >
+            {searching && <li style={{ padding: "0.5rem 0.75rem", color: "#888" }}>검색 중...</li>}
+            {!searching && suggestions.length === 0 && (
+              <li style={{ padding: "0.5rem 0.75rem", color: "#888" }}>검색 결과 없음</li>
+            )}
+            {suggestions.map((s) => (
+              <li key={s.symbol}>
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ width: "100%", textAlign: "left", borderRadius: 0 }}
+                  onClick={() => pickSuggestion(s)}
+                >
+                  {s.name} <span style={{ color: "#888" }}>({s.symbol} · {s.market === "US" ? "미국" : "일본"})</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <form className="stock-form" onSubmit={handleAdd}>
         <label>

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import config_store
 import github_sync
 import price_client
+import stock_search
 
 app = FastAPI(title="Stock Tracker API")
 
@@ -65,6 +66,11 @@ def _merge_symbol(symbol, entry, fx):
         "ackNeeded": alert_state["ackNeeded"],
         "lastCollectedAt": price.get("collectedAt") if price else None,
     }
+
+
+@app.get("/api/search")
+def search(q: str = ""):
+    return stock_search.search_stocks(q)
 
 
 @app.get("/api/watchlist")

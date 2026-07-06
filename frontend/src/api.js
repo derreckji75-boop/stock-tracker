@@ -14,6 +14,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  search: (q) => request(`/api/search?q=${encodeURIComponent(q)}`),
   getWatchlist: () => request("/api/watchlist"),
   addStock: (payload) =>
     request("/api/watchlist", { method: "POST", body: JSON.stringify(payload) }),
