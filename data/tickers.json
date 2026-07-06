@@ -6,5 +6,9 @@
   {
     "symbol": "AAPL",
     "market": "US"
+  },
+  {
+    "symbol": "MSFT",
+    "market": "US"
   }
 ]
