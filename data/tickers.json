@@ -1,5 +1,9 @@
 [
   {
+    "symbol": "7203.T",
+    "market": "JP"
+  },
+  {
     "symbol": "AAPL",
     "market": "US"
   }
